@@ -1,0 +1,64 @@
+{
+  "db_path": "soar.db",
+  "listen_host": "127.0.0.1",
+  "listen_port": 8080,
+  "api_keys": {"ingest": "", "admin": ""},
+  "dry_run": true,
+
+  "thresholds": {
+    "monitor": 20,
+    "min_confidence_auto": 0.7,
+    "actions": {"isolate_host": {"approval": 50, "auto": 85}}
+  },
+  "blast_radius": {"window_seconds": 3600, "max_per_action": 5, "max_total": 10},
+
+  "protected": {
+    "hosts": ["dc-*", "pki-*", "backup-*"],
+    "users": ["breakglass*", "krbtgt"],
+    "ips":   ["10.0.0.53/32", "10.0.0.54/32"],
+    "domains": ["corp.example.com"]
+  },
+  "sensitive": {"hosts": ["erp-*"], "users": ["ceo*"]},
+  "inventory": {
+    "assets": {"filesrv-*": {"criticality": "critical"}},
+    "users":  {"svc-*": {"privileged": true}, "vip.user": {"vip": true}}
+  },
+  "threat_intel": {"ips": [], "domains": [], "hashes": []},
+  "threat_intel_file": null,
+
+  "connectors": {
+    "edr": {
+      "type": "webhook",
+      "base_url": "https://edr.example.com/api/v1",
+      "token_env": "EDR_TOKEN",
+      "routes": {
+        "isolate_host":   {"method": "POST", "path": "/hosts/{target}/isolate"},
+        "unisolate_host": {"method": "POST", "path": "/hosts/{target}/release"},
+        "quarantine_file":{"method": "POST", "path": "/files/quarantine", "body": {"sha": "{target}", "host": "{host}"}},
+        "release_file":   {"method": "POST", "path": "/files/release",    "body": {"sha": "{target}"}}
+      }
+    },
+    "idp": {
+      "type": "webhook",
+      "base_url": "https://idp.example.com/api/v1",
+      "token_env": "IDP_TOKEN",
+      "routes": {
+        "disable_account": {"method": "POST", "path": "/users/{target}/lifecycle/suspend"},
+        "enable_account":  {"method": "POST", "path": "/users/{target}/lifecycle/unsuspend"},
+        "revoke_sessions": {"method": "DELETE", "path": "/users/{target}/sessions"}
+      }
+    },
+    "notify": {
+      "type": "webhook",
+      "base_url": "https://hooks.example.com/services/XXX",
+      "routes": {"notify": {"method": "POST", "path": "", "body": {"text": "{message}"}}}
+    }
+  },
+
+  "playbooks": {
+    "brute_force": [
+      {"action": "block_ip", "target": "indicators.ips", "ttl": 7200},
+      {"action": "notify",  "target": "incident"}
+    ]
+  }
+}
